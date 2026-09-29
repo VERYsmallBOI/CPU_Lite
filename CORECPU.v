@@ -33,7 +33,7 @@ wire [4:0]ALU_out_m;//1-valid 4 which register meta
 wire [4:0]MEM_out_m;
 //wriiten by fetch process
 //done process wil handle the movement with dones by other process
-//if a process doesnt produce a done the next process iwll get NOP - Stalling
+//if a process doesnt produce a done the next process iwll get OP_NOP - Stalling
 
 
     //it is noted WB will be alwasys 1 done
@@ -146,7 +146,7 @@ always @(posedge core_clk or negedge core_rst) begin
             R[i_reset] <= '0;
     end
     else begin
-        if(OPCODE[2]!=NOP)
+        if(OPCODE[2]!=OP_NOP)
         begin
             if(MEM_out_m[4])begin
                 R[MEM_out_m[3:0]]<=MEM_out;
@@ -161,7 +161,7 @@ end
 
 
 // always@(*)begin
-//     if(OPCODE[2]!=NOP)
+//     if(OPCODE[2]!=OP_NOP)
 
 
 // end
