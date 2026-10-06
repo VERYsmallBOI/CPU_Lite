@@ -3,22 +3,21 @@ module CORECPU (
     input core_clk,
     input core_rst,
     //from cache
-    input [31:0] data_in, // data from cache
+    input [31:0] RDATA, // data from cache
     input done_cache, //active high and normally 0 
     //to cache
     output req_cache, //request active high held until done has coma
+    output [31:0] WDATA,
     output [13:0] req_addr,//14 bit addr
     //from PROGMEM
-    input [31:0] instr,
+    input [31:0] instr_from_PROGMEM,
     //to PROGMEM
     output reg [11:0]PC,
-    input [31:0] instr_from_PROGMEM,
     ///below is done for verification only 
-    //status 
-    output reg [3:0]PSR,
     //GPR intentionally making unpacked for better access
-    output reg [31:0]R[15:0],
+    output reg [31:0]R[15:0]
 );
+localparam OP_NOP       = 8'h00;
 
 wire [11:0]PC_EX;//from EX
 ///when flush comes from Fetch has to do all 0 as instr to avoid sending stale values note
@@ -35,7 +34,9 @@ wire [4:0]MEM_out_m;
 //done process wil handle the movement with dones by other process
 //if a process doesnt produce a done the next process iwll get OP_NOP - Stalling
 
-
+wire [7:0]EX_op,MEM_op,WB_op;
+wire [3:0]EX_Rd,EX_Rs1,EX_Rs2,MEM_Rd,MEM_Rs1,MEM_Rs2;
+wire [11:0]MEM_IMM,EX_IMM;
     //it is noted WB will be alwasys 1 done
 wire flush,wait_forwarding_mem,halting;
 reg [31:0] instr_from_fetch;///conect to IDProcess
@@ -43,11 +44,11 @@ reg [31:0] instr_from_fetch;///conect to IDProcess
 ALUProcess AP (
     .ALU_outo             (ALU_out),
     .ALU_out_mo           (ALU_out_m),
-    .OPC                  (),
-    .Rd                   (),
-    .Rs1                  (),
-    .Rs2                  (),
-    .IMM                  (),
+    .OPC                  (EX_op),
+    .Rd                   (EX_Rd),
+    .Rs1                  (EX_Rs1),
+    .Rs2                  (EX_Rs2),
+    .IMM                  (EX_IMM),
     .R                    (R),
     .wait_forwarding_mem  (wait_forwarding_mem),
     .clk                  (core_clk),
@@ -71,22 +72,19 @@ IDProcess IDP (
     .flush                (flush),
     .wait_forwarding_mem  (wait_forwarding_mem),
     .instr_from_fetch     (instr_from_fetch),
-    .EX_op                (),
-    .MEM_op               (),
-    .WB_op                (),
-    .EX_Rd                (),
-    .MEM_Rd               (),
-    .WB_Rd                (),
-    .EX_Rs1               (),
-    .MEM_Rs1              (),
-    .WB_Rs1               (),
-    .EX_Rs2               (),
-    .MEM_Rs2              (),
-    .WB_Rs2               (),
-    .EX_IMM               (),
-    .MEM_IMM              (),
-    .WB_IMM               ()
+    .EX_op                (EX_op),
+    .MEM_op               (MEM_op),
+    .WB_op                (WB_op),
+    .EX_Rd                (EX_Rd),
+    .MEM_Rd               (MEM_Rd),
+    .EX_Rs1               (EX_Rs1),
+    .MEM_Rs1              (MEM_Rs1),
+    .EX_Rs2               (EX_Rs2),
+    .MEM_Rs2              (MEM_Rs2),
+    .EX_IMM               (EX_IMM),
+    .MEM_IMM              (MEM_IMM)
 );
+
 //1 clk latency by below but safer ig 
 always@(posedge core_clk or negedge core_rst)begin
     if(!core_rst)begin
@@ -96,13 +94,14 @@ always@(posedge core_clk or negedge core_rst)begin
         instr_from_fetch<=0;
     end
     else if(halting)begin
-        instr_from_fetch<=0;
+        instr_from_fetch<=instr_from_fetch;
     end
     else begin
         instr_from_fetch<=instr_from_PROGMEM;
     end
 end
 
+//MEMPRocess Fully pending 
 
 //PC update
 always @(posedge core_clk or negedge core_rst) begin
@@ -117,8 +116,8 @@ always @(posedge core_clk or negedge core_rst) begin
     else if(flush) begin
         PC<=PC_EX;
     end
-    else begin
-        PC<=1&done_EX+PC;//removing ID dependency 
+    else if(done_EX) begin
+        PC<=PC+1;//removing ID dependency 
     end
 end
 
@@ -146,7 +145,7 @@ always @(posedge core_clk or negedge core_rst) begin
             R[i_reset] <= '0;
     end
     else begin
-        if(OPCODE[2]!=OP_NOP)
+        if(WB_op!=OP_NOP)
         begin
             if(MEM_out_m[4])begin
                 R[MEM_out_m[3:0]]<=MEM_out;

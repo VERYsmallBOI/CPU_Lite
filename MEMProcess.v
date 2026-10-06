@@ -7,6 +7,12 @@ module MEMprocess(
     input [3:0]Rs1,
     input [3:0]Rs2,
     input [11:0]IMM,
+    output done_MEM,
+    output done_MEMr,
+    output [31:0]WDATA,
+    input [31:0]RDATA,
+    output req_cache,
+    input cache_done,//just a pulse at end to when to sample values
 
     );
     //only done_MEM is used at forwarding_wait no place else
