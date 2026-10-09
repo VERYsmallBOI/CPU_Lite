@@ -17,8 +17,8 @@ module ALUProcess(
     input wire [31:0]MEM_out,
     input wire [4:0]MEM_out_m,
     input done_MEMr,
-    output reg [11:0]PC,
-    output reg halting
+    output reg [11:0]PC
+   // output reg halting
 );
 
 //MEM and ALU process clears the current(0)their own outs only if they have nothing to give
@@ -81,7 +81,7 @@ reg [2:0]MUL_state,MUL_stater;//4 state 8 pp at once 4 states(0 to 3 MAC in4 wai
 reg [31:0]PP;
 reg [31:0]ACC,ACCr;
 
-reg HALTr;
+//reg HALTr;
 ///CALC
 always@(posedge clk or negedge rst)begin
     if(!rst)begin
@@ -92,13 +92,13 @@ always@(posedge clk or negedge rst)begin
         PSR<=0;
         MUL_state<=0;
         ACC<=0;
-        halting<=0;
+        //halting<=0;
     end
     else begin
         //wait_forwarding_mem doesnt let it move until the corresponsinf instr move from MEM
-        MUL_state<=(((wait_forwarding_mem)||done)?0:MUL_stater);//if waiting or done is present clear
+        MUL_state<=(((wait_forwarding_mem)||done_from_calc)?0:MUL_stater);//if waiting or done is present clear
 //when it actually finishes afeter forwarding go back to 0 so if next EX is also OP_MUL doesnt fuck it up
-        if((~wait_forwarding_mem)||done||(~halting))begin//registered version and anyway flushes
+        if(done)begin//registered version and anyway flushes
             ALU_out_m[1]<=ALU_out_m[0];
             ALU_out_m[0]<=notused?0:ALU_out_mr;//notsed for cmp
             ALU_out[0]<=notused?0:ALU_outr;
@@ -106,13 +106,12 @@ always@(posedge clk or negedge rst)begin
             PSR<=PSRr;
         end
         ACC <= (done || (wait_forwarding_mem)) ? 0 : ACCr;
-        halting<=HALTr;//all it does is dont give done 
+        //halting<=HALTr;//all it does is dont give done 
     end 
 end
 
 // 2 stuff as result done and actal resutl(flag + reg change)
 always@(*)begin
-    HALTr=0;
     ACCr=0;//default to 0 
     MUL_stater=0;//only change is at OP_MUL dont let it move in 3 state unless done comes 
     done_from_calc=1;//no latency execpt for mul 
@@ -416,7 +415,6 @@ always@(*)begin
         PSRr[2]=PSR[2];
         PSRr[1]=PSR[1];
         PSRr[0]=PSR[0];
-        HALTr=1;
     end
     default:begin
         ALU_outr=0;
@@ -430,9 +428,7 @@ always@(*)begin
     endcase
 end
 
-
-
-assign done=done_MEMr && done_from_calc;
+assign done=(~wait_forwarding_mem)&&done_from_calc&&done_MEMr;//&&(~halting);//no done_MEM cos EX is parallel
 //actual Rs calculation use ALU[1] and MEM's 
 always@(*)begin
 if(MEM_out_m=={1'b1,Rs1})

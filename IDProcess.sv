@@ -1,12 +1,15 @@
 //Decode process iwll write OP_NOP so unncessary writes are stoped
 //halts Decode and fetch process not WB and MEM still will move MEM to WB not others 
 //ID process wil handle the movement with dones by other process
+         //\     /\\
+        //  (. .)  \\
+       //    (!)    \\
+//real control spider
 //if a process doesnt produce a done the next process iwll get OP_NOP - Stalling
 module IDProcess(
     input clk,
     input rst,
 
-    input done_MEM,
     input done_MEMr,
     //output reg done_ID,//combo
     input done_EX,
@@ -168,9 +171,10 @@ always@(*)begin
 
     end
 
-
+    //done_MEMr is the combo
+    //wait_forwarding already does stall the whole cycle so EX gets neccesary time in next cycle
     //MEM instr
-    if(done_EX && done_MEM)begin //MOVE it 
+    if(done_EX)begin //MOVE it done_EX already accoutns for done_MEMr
                 OPCODEr[1]=OPCODE[0];
                 Rdr[1]=Rd[0];
                 Rs1r[1]=Rs1[0];
@@ -178,7 +182,7 @@ always@(*)begin
                 IMMr[1]=IMM[0];
 
     end
-    else if(done_MEM) begin
+    else if(done_MEMr) begin
                 OPCODEr[1]=OP_NOP;
                 Rdr[1]=4'b0;
                 Rs1r[1]=4'b0;

@@ -7,6 +7,7 @@
 //data is recieved in 4 cycles 3 first 2 1 0 last
 module Cache(input clk,
 input rst,
+//to and fro MEMprocess
 input [13:0]req_addr,
 input write,
 input [31:0]WDATA,
@@ -21,7 +22,6 @@ output reg [47:0]s_wdata,
 output reg r_rcmd,
 input r_empty,
 input [47:0]r_rdata
-
 );
 reg ACK;//used for ACK gen
 //req 0 to 1 and cache starts working and done 0 to 1 and req 1 to 0 then done 1 to 0

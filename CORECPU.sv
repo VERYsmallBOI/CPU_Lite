@@ -9,6 +9,7 @@ module CORECPU (
     output req_cache, //request active high held until done has coma
     output [31:0] WDATA,
     output [13:0] req_addr,//14 bit addr
+    output write_cache,//write or read connects to write in cahce
     //from PROGMEM
     input [31:0] instr_from_PROGMEM,
     //to PROGMEM
@@ -38,7 +39,7 @@ wire [7:0]EX_op,MEM_op,WB_op;
 wire [3:0]EX_Rd,EX_Rs1,EX_Rs2,MEM_Rd,MEM_Rs1,MEM_Rs2;
 wire [11:0]MEM_IMM,EX_IMM;
     //it is noted WB will be alwasys 1 done
-wire flush,wait_forwarding_mem,halting;
+wire flush,wait_forwarding_mem;//,halting;
 reg [31:0] instr_from_fetch;///conect to IDProcess
 //halts Decode and fetch process not WB and MEM still will move MEM to WB not others 
 ALUProcess AP (
@@ -58,8 +59,8 @@ ALUProcess AP (
     .MEM_out              (MEM_out),
     .MEM_out_m            (MEM_out_m),
     .done_MEMr            (done_MEMr),
-    .PC                   (PC_EX),
-    .halting              (halting)
+    .PC                   (PC_EX)
+    //.halting              (halting)
 );
 
 
@@ -93,30 +94,51 @@ always@(posedge core_clk or negedge core_rst)begin
     else if(flush)begin//will flush
         instr_from_fetch<=0;
     end
-    else if(halting)begin
-        instr_from_fetch<=instr_from_fetch;
-    end
+    // else if(halting)begin
+    //     instr_from_fetch<=instr_from_fetch;
+    // end
     else begin
         instr_from_fetch<=instr_from_PROGMEM;
     end
 end
 
 //MEMPRocess Fully pending 
+MEMProcess MP (
+    .clk        (core_clk),
+    .rst        (core_rst),
+    .MEM_out    (MEM_out),
+    .MEM_out_m  (MEM_out_m),
+    .OPC        (MEM_op),
+    .Rd         (MEM_Rd),
+    .Rs1        (MEM_Rs1),
+    .Rs2        (MEM_Rs2),
+    .IMM        (MEM_IMM),
+    .R          (R),
+    .done_MEM   (done_MEM),
+    .done_MEMr  (done_MEMr),
+    .WDATA      (WDATA),
+    .RDATA      (RDATA),
+    .req_cache  (req_cache),
+    .cache_done (cache_done),
+    .req_addr   (req_addr),
+    .write_cache(write_cache)
+);
+
 
 //PC update
 always @(posedge core_clk or negedge core_rst) begin
     if(!core_rst)begin
         PC<=0;
     end
-    //pending 
-   else  if(halting)
-    begin
-        PC<=PC;
-    end
+//     //pending 
+//    else  if(halting)
+//     begin
+//         PC<=PC;
+//     end
     else if(flush) begin
         PC<=PC_EX;
     end
-    else if(done_EX) begin
+    else if(done_EX) begin//fastest cant have halting
         PC<=PC+1;//removing ID dependency 
     end
 end
@@ -126,9 +148,7 @@ end
 //Control spine is divided ALU controls Flush ID controls the instruction flow
 //MEM delays whole flow if presetn 
 //ALU and MEM has their own Hold registers for forwarding usage.
-     //\     /\\
-    //  (. .)  \\
-   //    (!)    \\
+
 // always @(posedge core_clk or negedge core_rst) begin
 //     if(!core_rst)begin
 
@@ -141,8 +161,7 @@ end
 integer i_reset;
 always @(posedge core_clk or negedge core_rst) begin
     if(!core_rst)begin
-        for (i_reset = 0; i_reset < 16; i_reset = i_reset + 1)
-            R[i_reset] <= '0;
+        R <= '{default:'0};
     end
     else begin
         if(WB_op!=OP_NOP)
@@ -157,26 +176,6 @@ always @(posedge core_clk or negedge core_rst) begin
         end
     end
 end
-
-
-// always@(*)begin
-//     if(OPCODE[2]!=OP_NOP)
-
-
-// end
-
-
-
-//alu maker
-
-
-
-
-
-
-
-
-
 
 
     
